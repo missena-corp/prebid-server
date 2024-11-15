@@ -12,6 +12,7 @@ import (
 	"github.com/prebid/prebid-server/v3/errortypes"
 	"github.com/prebid/prebid-server/v3/openrtb_ext"
 	"github.com/prebid/prebid-server/v3/util/jsonutil"
+	"github.com/prebid/prebid-server/v3/version"
 )
 
 type adapter struct {
@@ -19,33 +20,52 @@ type adapter struct {
 }
 
 type MissenaAdRequest struct {
-	RequestId        string `json:"request_id"`
-	Timeout          int    `json:"timeout"`
-	Referer          string `json:"referer"`
-	RefererCanonical string `json:"referer_canonical"`
-	GDPRConsent      string `json:"consent_string"`
-	GDPR             bool   `json:"consent_required"`
-	Placement        string `json:"placement"`
-	TestMode         string `json:"test"`
+	Adunit           string                `json:"adunit,omitempty"`
+	COPPA            int8                  `json:"coppa,omitempty"`
+	Currency         string                `json:"currency,omitempty"`
+	EIDs             []openrtb2.EID        `json:"userEids,omitempty"`
+	Floor            float64               `json:"floor"`
+	FloorCurrency    string                `json:"floor_currency"`
+	GDPR             bool                  `json:"consent_required"`
+	GDPRConsent      string                `json:"consent_string"`
+	IdempotencyKey   string                `json:"ik"`
+	Referer          string                `json:"referer"`
+	RefererCanonical string                `json:"referer_canonical"`
+	RequestID        string                `json:"request_id"`
+	SChain           *openrtb2.SupplyChain `json:"schain"`
+	Timeout          int                   `json:"timeout"`
+	URL              string                `json:"url,omitempty"`
+	UserParams       MissenaUserParams     `json:"params"`
+	USPrivacy        string                `json:"us_privacy,omitempty"`
+	Version          string                `json:"version,omitempty"`
 }
 
 type MissenaBidServerResponse struct {
 	Ad        string  `json:"ad"`
 	Cpm       float64 `json:"cpm"`
 	Currency  string  `json:"currency"`
-	RequestId string  `json:"requestId"`
+	RequestID string  `json:"requestId"`
+}
+
+type MissenaUserParams struct {
+	Formats   []string       `json:"formats,omitempty"`
+	Placement string         `json:"placement,omitempty" default:"sticky"`
+	Sample    string         `json:"sample,omitempty"`
+	Settings  map[string]any `json:"settings,omitempty"`
 }
 
 type MissenaInternalParams struct {
 	ApiKey           string
-	RequestId        string
-	Timeout          int
+	Formats          []string
+	GDPR             bool
+	GDPRConsent      string
+	Placement        string
 	Referer          string
 	RefererCanonical string
-	GDPRConsent      string
-	GDPR             bool
-	Placement        string
-	TestMode         string
+	RequestId        string
+	Sample           string
+	Settings         map[string]any
+	Timeout          int
 }
 
 type MissenaAdapter struct {
@@ -60,18 +80,49 @@ func Builder(bidderName openrtb_ext.BidderName, config config.Adapter, server co
 	return bidder, nil
 }
 
-func (a *adapter) makeRequest(missenaParams MissenaInternalParams, reqInfo *adapters.ExtraRequestInfo, impID string, request *openrtb2.BidRequest) (*adapters.RequestData, error) {
+func getCurrency(currencies []string) (string, error) {
+	eurAvailable := false
+	for _, cur := range currencies {
+		if cur == "USD" {
+			return "USD", nil
+		}
+		if cur == "EUR" {
+			eurAvailable = true
+		}
+	}
+	if eurAvailable {
+		return "EUR", nil
+	}
+	return "", fmt.Errorf("No currency supported %v", currencies)
+}
+
+func (a *adapter) makeRequest(missenaParams MissenaInternalParams, reqInfo *adapters.ExtraRequestInfo, imp openrtb2.Imp, request *openrtb2.BidRequest) (*adapters.RequestData, error) {
 	url := a.endpoint + "?t=" + missenaParams.ApiKey
+	currency, err := getCurrency(request.Cur)
+	if err != nil {
+		// TODO: convert unsupported currency on response
+		return nil, err
+	}
 
 	missenaRequest := MissenaAdRequest{
-		RequestId:        request.ID,
-		Timeout:          2000,
+		Adunit:           imp.ID,
+		COPPA:            request.Regs.COPPA,
+		Currency:         currency,
+		EIDs:             request.User.EIDs,
+		GDPR:             missenaParams.GDPR,
+		GDPRConsent:      missenaParams.GDPRConsent,
+		IdempotencyKey:   request.ID,
 		Referer:          request.Site.Page,
 		RefererCanonical: request.Site.Domain,
-		GDPRConsent:      missenaParams.GDPRConsent,
-		GDPR:             missenaParams.GDPR,
-		Placement:        missenaParams.Placement,
-		TestMode:         missenaParams.TestMode,
+		RequestID:        request.ID,
+		SChain:           request.Source.SChain,
+		Timeout:          2000,
+		UserParams: MissenaUserParams{
+			Formats:   missenaParams.Formats,
+			Placement: missenaParams.Placement,
+			Settings:  missenaParams.Settings,
+		},
+		Version: version.Ver,
 	}
 
 	body, errm := json.Marshal(missenaRequest)
@@ -100,7 +151,7 @@ func (a *adapter) makeRequest(missenaParams MissenaInternalParams, reqInfo *adap
 		Uri:     url,
 		Headers: headers,
 		Body:    body,
-		ImpIDs:  []string{impID},
+		ImpIDs:  []string{imp.ID},
 	}, nil
 }
 
@@ -134,9 +185,9 @@ func (a *adapter) MakeRequests(request *openrtb2.BidRequest, requestInfo *adapte
 
 		missenaInternalParams.ApiKey = missenaExt.ApiKey
 		missenaInternalParams.Placement = missenaExt.Placement
-		missenaInternalParams.TestMode = missenaExt.TestMode
+		missenaInternalParams.Sample = missenaExt.Sample
 
-		newHttpRequest, err := a.makeRequest(missenaInternalParams, requestInfo, imp.ID, request)
+		newHttpRequest, err := a.makeRequest(missenaInternalParams, requestInfo, imp, request)
 		if err != nil {
 			errors = append(errors, err)
 			continue
@@ -202,7 +253,7 @@ func (a *adapter) MakeBids(request *openrtb2.BidRequest, requestData *adapters.R
 		Price: float64(missenaResponse.Cpm),
 		ImpID: request.Imp[0].ID,
 		AdM:   missenaResponse.Ad,
-		CrID:  missenaResponse.RequestId,
+		CrID:  missenaResponse.RequestID,
 	}
 
 	b := &adapters.TypedBid{

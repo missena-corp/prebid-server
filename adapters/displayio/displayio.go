@@ -17,7 +17,8 @@ import (
 )
 
 type adapter struct {
-	endpoint *template.Template
+	endpoint              *template.Template
+	hasUnsuportedCurrency bool
 }
 
 type reqDioExt struct {
