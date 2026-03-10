@@ -1,3 +1,4 @@
-# Ignore everything in this directory, except for this file
+# Ignore everything in this directory, except for this file and missena stored requests
 *
 !.gitignore
+!PA-*.json
