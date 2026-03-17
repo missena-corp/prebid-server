@@ -37,6 +37,7 @@ var validParams = []string{
 	`{"apiKey": "PA-123456"}`,
 	`{"apiKey": "PA-123456", "placement": "sticky"}`,
 	`{"apiKey": "PA-123456", "sample": "test-sample"}`,
+	`{"apiKey": "PA-123456", "sample": null}`,
 }
 
 var invalidParams = []string{
