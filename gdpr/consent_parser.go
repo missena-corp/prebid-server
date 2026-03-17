@@ -3,6 +3,7 @@ package gdpr
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/prebid/go-gdpr/api"
 	"github.com/prebid/go-gdpr/vendorconsent"
@@ -18,8 +19,31 @@ type parsedConsent struct {
 	consentMeta     tcf2.ConsentMetadata
 }
 
+// sanitizeConsentString fixes consent strings where base64url segments have an
+// invalid length (1 mod 4). Some CMPs produce consent strings where a segment
+// length is not valid for standard base64 decoding. TCF consent strings are
+// bit-level encodings where each base64url character represents 6 bits. When
+// the total number of bits is not aligned to byte boundaries, the segment
+// length can end up as 1 mod 4 which Go's base64 decoder rejects. Padding
+// with 'A' (zero bits) to the next valid length preserves all original data.
+func sanitizeConsentString(consent string) string {
+	segments := strings.Split(consent, ".")
+	changed := false
+	for i, seg := range segments {
+		if len(seg) > 0 && len(seg)%4 == 1 {
+			segments[i] = seg + "AAA"
+			changed = true
+		}
+	}
+	if changed {
+		return strings.Join(segments, ".")
+	}
+	return consent
+}
+
 // parseConsent parses and validates the specified consent string returning an instance of parsedConsent
 func parseConsent(consent string) (*parsedConsent, error) {
+	consent = sanitizeConsentString(consent)
 	pc, err := vendorconsent.ParseString(consent)
 	if err != nil {
 		return nil, &ErrorMalformedConsent{

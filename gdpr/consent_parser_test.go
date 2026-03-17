@@ -10,9 +10,48 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestSanitizeConsentString(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "valid_length_no_change",
+			input:    "CPuKGCPPuKGCPNEAAAENCZCAAAAAAAAAAAAAAAAAAAAA",
+			expected: "CPuKGCPPuKGCPNEAAAENCZCAAAAAAAAAAAAAAAAAAAAA",
+		},
+		{
+			name:     "segment_length_1_mod_4_gets_padded",
+			input:    "ABCDE",
+			expected: "ABCDEAAA",
+		},
+		{
+			name:     "multi_segment_only_invalid_padded",
+			input:    "ABCDE.FGHI.J",
+			expected: "ABCDEAAA.FGHI.JAAA",
+		},
+		{
+			name:     "empty_string_unchanged",
+			input:    "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizeConsentString(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 func TestParseConsent(t *testing.T) {
 	validTCF1Consent := "BONV8oqONXwgmADACHENAO7pqzAAppY"
 	validTCF2Consent := "CPuKGCPPuKGCPNEAAAENCZCAAAAAAAAAAAAAAAAAAAAA"
+	// This consent string has a core segment with length 473 (1 mod 4), which is
+	// invalid for standard base64 decoding. Some CMPs (e.g. Didomi) produce these.
+	invalidBase64LengthConsent := "CQhNf8AQhNf8ABcAKEENCWFoAP_gAEPgAAqIKEEB7CZMTSFhMCZmCYsAaQQGwRBAYkAABAAIAQAACBJAIIQAwGAAIABAAAAIABAAIFBAAAEFCAhAAAAAIAAAAAAIAAAAAAACIKAAAAERAgAACABICQAACAAAAABAAhAAgAAE4AoIQEQAAAAAAAAAAAAAAACQAAIAAAAAAAEQAAAAAEgAgAAAAACAAAAIAlBYAEAIIAEAAAAAAAAAAgAAAAACBBQgAEQQIiCAsAAAIAAAgAQACCAIACAAAAAAAAAAAAQIABACACgwAAAAAAAABAAAAAAAAAAAAIAEIAAAAAAAAAAABAAAAAAAAAAQAAAAAIEAAAAABACAAAAAAAAAIAAIAEAAABAAACAgAAAAAAAAAAAAAAAASAAAAAAAAAAAgAAAAAAgAEAAAAAAQAAAAAAABAAAABAAAAAAAAAAAAAAAAAAAAIAA.IKEEB7CZMTSFhMCZmCYsAaQQWwRBAYkAABAAIAQAACBJAIIQA0GAAIABAAAAIABAAIFBAAAEFCAhAAAAAIAAAAAAIAAAAAAACIKAAAAERAgAACABICQAACAAAAABAAhAAgAAE4AoIQEQAAAAAAAAAAAAAAACQAAIAAAAAAAEQAAAAAEgAgAAAAACAAAAIAlBYAEAIIAEAAAAAAAAAAgAAAAACB.cSgAAAAAAA"
 
 	tests := []struct {
 		name                    string
@@ -29,6 +68,13 @@ func TestParseConsent(t *testing.T) {
 			expectedEncodingVersion: 2,
 			expectedListVersion:     153,
 			expectedSpecVersion:     2,
+		},
+		{
+			name:                    "consent_with_invalid_base64_length_is_sanitized",
+			consent:                 invalidBase64LengthConsent,
+			expectedEncodingVersion: 2,
+			expectedListVersion:     150,
+			expectedSpecVersion:     3,
 		},
 		{
 			name:    "invalid_consent_parsing_error",
@@ -58,9 +104,9 @@ func TestParseConsent(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.NotNil(t, parsedConsent)
-				assert.Equal(t, uint8(2), parsedConsent.encodingVersion)
-				assert.Equal(t, uint16(153), parsedConsent.listVersion)
-				assert.Equal(t, uint16(2), parsedConsent.specVersion)
+				assert.Equal(t, tt.expectedEncodingVersion, parsedConsent.encodingVersion)
+				assert.Equal(t, tt.expectedListVersion, parsedConsent.listVersion)
+				assert.Equal(t, tt.expectedSpecVersion, parsedConsent.specVersion)
 				assert.Equal(t, tt.expectedEncodingVersion, parsedConsent.consentMeta.Version())
 				assert.Equal(t, tt.expectedListVersion, parsedConsent.consentMeta.VendorListVersion())
 			}
