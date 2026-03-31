@@ -1,5 +1,5 @@
 {
-    "id": "PA-34761163",
+    "id": "PA-34745704",
     "site": {
         "page": "https://publisher.com"
     },
@@ -38,8 +38,8 @@
                 "prebid": {
                     "bidder": {
                         "missena": {
-                            "apiKey": "PA-34761163",
-                            "placement": "sticky",
+                            "apiKey": "PA-34745704",
+                            "placement": "infeed",
                             "sample": "native"
                         }
                     }
