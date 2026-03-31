@@ -39,8 +39,8 @@
                     "bidder": {
                         "missena": {
                             "apiKey": "PA-34745704",
-                            "placement": "sticky",
-                            "sample": "native"
+                            "placement": "infeed",
+                            "sample": "banner"
                         }
                     }
                 }

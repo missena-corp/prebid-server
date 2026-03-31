@@ -1,0 +1,50 @@
+{
+    "id": "PA-34745704",
+    "site": {
+        "page": "https://publisher.com"
+    },
+    "ext": {
+        "prebid": {
+            "targeting": {
+                "includewinners": true,
+                "includebidderkeys": true,
+                "pricegranularity": {
+                    "precision": 2,
+                    "ranges": [
+                        {
+                            "max": 20.00,
+                            "increment": 0.10
+                        }
+                    ]
+                }
+            },
+            "cache": {
+                "bids": {}
+            }
+        }
+    },
+    "imp": [
+        {
+            "id": "msna-banner",
+            "banner": {
+                "format": [
+                    {
+                        "w": 300,
+                        "h": 250
+                    }
+                ]
+            },
+            "ext": {
+                "prebid": {
+                    "bidder": {
+                        "missena": {
+                            "apiKey": "PA-34745704",
+                            "placement": "footer",
+                            "sample": "native"
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}
