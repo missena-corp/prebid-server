@@ -1,0 +1,57 @@
+{
+    "id": "PA-66635857",
+    "site": {
+        "page": "https://www.eleconomista.es"
+    },
+    "ext": {
+        "prebid": {
+            "targeting": {
+                "includewinners": true,
+                "includebidderkeys": true,
+                "pricegranularity": {
+                    "precision": 2,
+                    "ranges": [
+                        {
+                            "max": 20.00,
+                            "increment": 0.10
+                        }
+                    ]
+                }
+            },
+            "cache": {
+                "bids": {}
+            }
+        }
+    },
+    "imp": [
+        {
+            "id": "msna-banner",
+            "banner": {
+                "format": [
+                    {
+                        "w": 320,
+                        "h": 100
+                    },
+                    {
+                        "w": 320,
+                        "h": 50
+                    },
+                    {
+                        "w": 728,
+                        "h": 90
+                    }
+                ]
+            },
+            "ext": {
+                "prebid": {
+                    "bidder": {
+                        "missena": {
+                            "apiKey": "PA-66635857",
+                            "placement": "header"
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}
